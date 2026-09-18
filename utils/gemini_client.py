@@ -188,6 +188,12 @@ def generate_with_retry(
     )
 
 
+
+# utils.ai_features imports this exact name — generate_with_retry is the
+# real implementation, this is just the public alias it expects.
+generate_with_gemini = generate_with_retry
+
+
 def generate_summary(client, material):
     """
     Generate a summary from study material.
