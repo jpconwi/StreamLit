@@ -9,10 +9,11 @@ GEMINI_MODEL = "gemini-3.6-flash"
 # Keep this alias if other files use PRIMARY_MODEL
 PRIMARY_MODEL = GEMINI_MODEL
 
-# Backup models
+# Backup models (2.5-flash / 2.5-flash-lite are deprecated and 404 for new
+# users as of mid-2026 — Google's own API error names these as the successors)
 BACKUP_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
 ]
 
 MAX_PROMPT_CHARS = 12000
