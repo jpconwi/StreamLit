@@ -50,7 +50,7 @@ APP_ICON = "📚"
 # Gemini model used for all AI features.
 # If this model is unavailable in your region/account, try:
 # "gemini-2.0-flash" or another model available in Google AI Studio.
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-3.6-flash"
 
 # Basic English stopword list used for keyword-frequency analysis.
 STOPWORDS = {
