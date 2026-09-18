@@ -78,7 +78,7 @@ def render_sidebar():
 
     if api_key:
         st.sidebar.success(
-            "Gemini API key detected."
+            "Explore Your Study Materials"
         )
     else:
         st.sidebar.warning(
@@ -89,12 +89,12 @@ def render_sidebar():
 
     st.sidebar.divider()
 
-    st.sidebar.subheader("AI Model")
+    # st.sidebar.subheader("AI Model")
 
-    st.sidebar.code(
-        GEMINI_MODEL,
-        language="text",
-    )
+    # st.sidebar.code(
+    #     GEMINI_MODEL,
+    #     language="text",
+    # )
 
     st.sidebar.caption(
         "This is the confirmed Gemini model used by the app."
