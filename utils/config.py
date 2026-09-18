@@ -1,15 +1,16 @@
-# config.py
+# utils/config.py
 
 APP_TITLE = "StudySense"
 APP_ICON = "📚"
 
-# Your working primary model
-PRIMARY_MODEL = "gemini-3.6-flash"
+# Primary Gemini model
+GEMINI_MODEL = "gemini-3.6-flash"
+
+# Keep this alias if other files use PRIMARY_MODEL
+PRIMARY_MODEL = GEMINI_MODEL
 
 # Backup models
-# These must be models available to your Gemini API account.
 BACKUP_MODELS = [
-    "gemini-3.6-flash",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
 ]
