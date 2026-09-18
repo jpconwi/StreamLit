@@ -7,6 +7,7 @@ Run:
 
 import streamlit as st
 
+
 from utils.config import APP_TITLE, APP_ICON
 from utils.ui import (
     initialize_session_state,
