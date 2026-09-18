@@ -21,6 +21,12 @@ from datetime import datetime
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from dotenv import load_dotenv
+
+# Load variables from a local .env file (if present) into the environment.
+# This has no effect in production environments where the OS/host already
+# provides environment variables (e.g. Streamlit Cloud secrets).
+load_dotenv()
 
 # PDF extraction
 import fitz  # PyMuPDF
@@ -107,14 +113,16 @@ for key, value in DEFAULT_STATE.items():
 
 def get_api_key() -> str:
     """
-    Retrieve the OpenAI API key from Streamlit secrets first, then from
-    environment variables. Never hardcode a key in this file.
+    Retrieve the OpenAI API key from environment variables (including a
+    local .env file loaded via python-dotenv) first, then fall back to
+    Streamlit secrets if present. Never hardcode a key in this file.
     """
-    key = ""
-    try:
-        key = st.secrets["OPENAI_API_KEY"]
-    except Exception:
-        key = os.getenv("OPENAI_API_KEY", "")
+    key = os.getenv("OPENAI_API_KEY", "")
+    if not key:
+        try:
+            key = st.secrets["OPENAI_API_KEY"]
+        except Exception:
+            key = ""
     return key or ""
 
 

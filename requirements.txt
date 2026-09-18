@@ -4,3 +4,4 @@ plotly
 openai
 pymupdf
 python-docx
+python-dotenv
