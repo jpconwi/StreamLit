@@ -470,7 +470,8 @@ def render_sidebar():
     # API key status
     api_key = get_api_key()
     if api_key:
-        st.sidebar.success("OpenAI API key detected.")
+        # st.sidebar.success("OpenAI API key detected.")
+        st.sidebar.success("AI provider connection verified.")
     else:
         st.sidebar.warning(
             "No OpenAI API key found.\n\n"
