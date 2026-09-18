@@ -87,20 +87,20 @@ def render_sidebar():
             "or in your .env file."
         )
 
-    st.sidebar.divider()
+    # st.sidebar.divider()
 
-    # st.sidebar.subheader("AI Model")
+    # # st.sidebar.subheader("AI Model")
 
-    # st.sidebar.code(
-    #     GEMINI_MODEL,
-    #     language="text",
-    # )
+    # # st.sidebar.code(
+    # #     GEMINI_MODEL,
+    # #     language="text",
+    # # )
 
-    # st.sidebar.caption(
-    #     "This is the confirmed Gemini model used by the app."
-    # )
+    # # st.sidebar.caption(
+    # #     "This is the confirmed Gemini model used by the app."
+    # # )
 
-    st.sidebar.divider()
+    # st.sidebar.divider()
 
     st.sidebar.subheader(
         "1. Add Your Study Material"
