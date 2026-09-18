@@ -96,9 +96,9 @@ def render_sidebar():
     #     language="text",
     # )
 
-    st.sidebar.caption(
-        "This is the confirmed Gemini model used by the app."
-    )
+    # st.sidebar.caption(
+    #     "This is the confirmed Gemini model used by the app."
+    # )
 
     st.sidebar.divider()
 
