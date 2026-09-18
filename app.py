@@ -1,13 +1,16 @@
 """
 StudySense: AI Study Material Analyzer and Quiz Generator
 
-A Streamlit dashboard that lets students upload or paste study material,
-view document statistics and keyword analysis, generate an AI summary,
-generate an AI multiple-choice quiz, and ask an AI study assistant
-questions about the material.
+A Streamlit dashboard that lets students:
+- Upload PDF, DOCX, or TXT study material
+- Paste study material
+- View document statistics
+- Analyze keyword frequency
+- Generate an AI summary
+- Generate an AI multiple-choice quiz
+- Ask an AI study assistant questions
 
-Run with:
-
+Run:
     streamlit run app.py
 """
 
@@ -28,7 +31,7 @@ import fitz  # PyMuPDF
 # DOCX extraction
 import docx
 
-# Google Gemini client
+# Google Gemini SDK
 from google import genai
 from google.genai import types
 
@@ -47,35 +50,205 @@ load_dotenv()
 APP_TITLE = "StudySense"
 APP_ICON = "📚"
 
-# Gemini model used for all AI features.
-# If this model is unavailable in your region/account, try:
-# "gemini-2.0-flash" or another model available in Google AI Studio.
-MODEL_NAME = "gemini-3.6-flash"
+# Gemini model fallback list.
+#
+# The application tries these models in order.
+# Model availability may depend on your API key, account, region, and quota.
+MODEL_NAMES = [
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+]
 
-# Basic English stopword list used for keyword-frequency analysis.
+# Maximum text sent to the AI.
+MAX_PROMPT_CHARS = 12000
+
+# Basic English stopword list.
 STOPWORDS = {
-    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",
-    "any", "are", "aren't", "as", "at", "be", "because", "been", "before",
-    "being", "below", "between", "both", "but", "by", "can", "cannot",
-    "could", "couldn't", "did", "didn't", "do", "does", "doesn't", "doing",
-    "don't", "down", "during", "each", "few", "for", "from", "further",
-    "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he",
-    "he'd", "he'll", "he's", "her", "here", "here's", "hers", "herself",
-    "him", "himself", "his", "how", "how's", "i", "i'd", "i'll", "i'm",
-    "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself",
-    "let's", "me", "more", "most", "mustn't", "my", "myself", "no", "nor",
-    "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our",
-    "ours", "ourselves", "out", "over", "own", "same", "shan't", "she",
-    "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such",
-    "than", "that", "that's", "the", "their", "theirs", "them", "themselves",
-    "then", "there", "there's", "these", "they", "they'd", "they'll",
-    "they're", "they've", "this", "those", "through", "to", "too", "under",
-    "until", "up", "very", "was", "wasn't", "we", "we'd", "we'll", "we're",
-    "we've", "were", "weren't", "what", "what's", "when", "when's", "where",
-    "where's", "which", "while", "who", "who's", "whom", "why", "why's",
-    "with", "won't", "would", "wouldn't", "you", "you'd", "you'll",
-    "you're", "you've", "your", "yours", "yourself", "yourselves",
-    "also", "however", "thus", "therefore", "e.g", "i.e", "etc",
+    "a",
+    "about",
+    "above",
+    "after",
+    "again",
+    "against",
+    "all",
+    "am",
+    "an",
+    "and",
+    "any",
+    "are",
+    "aren't",
+    "as",
+    "at",
+    "be",
+    "because",
+    "been",
+    "before",
+    "being",
+    "below",
+    "between",
+    "both",
+    "but",
+    "by",
+    "can",
+    "cannot",
+    "could",
+    "couldn't",
+    "did",
+    "didn't",
+    "do",
+    "does",
+    "doesn't",
+    "doing",
+    "don't",
+    "down",
+    "during",
+    "each",
+    "few",
+    "for",
+    "from",
+    "further",
+    "had",
+    "hadn't",
+    "has",
+    "hasn't",
+    "have",
+    "haven't",
+    "having",
+    "he",
+    "he'd",
+    "he'll",
+    "he's",
+    "her",
+    "here",
+    "here's",
+    "hers",
+    "herself",
+    "him",
+    "himself",
+    "his",
+    "how",
+    "how's",
+    "i",
+    "i'd",
+    "i'll",
+    "i'm",
+    "i've",
+    "if",
+    "in",
+    "into",
+    "is",
+    "isn't",
+    "it",
+    "it's",
+    "its",
+    "itself",
+    "let's",
+    "me",
+    "more",
+    "most",
+    "mustn't",
+    "my",
+    "myself",
+    "no",
+    "nor",
+    "not",
+    "of",
+    "off",
+    "on",
+    "once",
+    "only",
+    "or",
+    "other",
+    "ought",
+    "our",
+    "ours",
+    "ourselves",
+    "out",
+    "over",
+    "own",
+    "same",
+    "shan't",
+    "she",
+    "she'd",
+    "she'll",
+    "she's",
+    "should",
+    "shouldn't",
+    "so",
+    "some",
+    "such",
+    "than",
+    "that",
+    "that's",
+    "the",
+    "their",
+    "theirs",
+    "them",
+    "themselves",
+    "then",
+    "there",
+    "there's",
+    "these",
+    "they",
+    "they'd",
+    "they'll",
+    "they're",
+    "they've",
+    "this",
+    "those",
+    "through",
+    "to",
+    "too",
+    "under",
+    "until",
+    "up",
+    "very",
+    "was",
+    "wasn't",
+    "we",
+    "we'd",
+    "we'll",
+    "we're",
+    "we've",
+    "were",
+    "weren't",
+    "what",
+    "what's",
+    "when",
+    "when's",
+    "where",
+    "where's",
+    "which",
+    "while",
+    "who",
+    "who's",
+    "whom",
+    "why",
+    "why's",
+    "with",
+    "won't",
+    "would",
+    "wouldn't",
+    "you",
+    "you'd",
+    "you'll",
+    "you're",
+    "you've",
+    "your",
+    "yours",
+    "yourself",
+    "yourselves",
+    "also",
+    "however",
+    "thus",
+    "therefore",
+    "e.g",
+    "i.e",
+    "etc",
 }
 
 
@@ -92,7 +265,7 @@ st.set_page_config(
 
 
 # =============================================================================
-# SESSION STATE INITIALIZATION
+# SESSION STATE
 # =============================================================================
 
 DEFAULT_STATE = {
@@ -102,8 +275,11 @@ DEFAULT_STATE = {
     "stats": None,
     "keywords_df": None,
     "summary": "",
+    "summary_model": "",
     "quiz": None,
+    "quiz_model": "",
     "quiz_raw_error": "",
+    "assistant_model": "",
     "qa_history": [],
 }
 
@@ -119,20 +295,23 @@ for key, value in DEFAULT_STATE.items():
 def get_api_key() -> str:
     """
     Retrieve the Gemini API key from:
+    1. Streamlit secrets
+    2. Environment variable
 
-    1. Environment variable
-    2. Streamlit secrets
-
-    Never hardcode an API key in this file.
+    Never hardcode your API key in app.py.
     """
 
-    key = os.getenv("GEMINI_API_KEY", "").strip()
+    key = ""
 
+    # Streamlit Cloud secrets
+    try:
+        key = st.secrets.get("GEMINI_API_KEY", "")
+    except Exception:
+        key = ""
+
+    # Local .env fallback
     if not key:
-        try:
-            key = st.secrets.get("GEMINI_API_KEY", "")
-        except Exception:
-            key = ""
+        key = os.getenv("GEMINI_API_KEY", "")
 
     return key.strip() if key else ""
 
@@ -150,8 +329,100 @@ def get_ai_client():
 
     try:
         return genai.Client(api_key=api_key)
-    except Exception:
+    except Exception as exc:
+        st.error(f"Could not initialize Gemini client: {exc}")
         return None
+
+
+# =============================================================================
+# GEMINI MODEL FALLBACK
+# =============================================================================
+
+def generate_with_model_fallback(
+    client,
+    prompt: str,
+    json_mode: bool = False
+):
+    """
+    Try multiple Gemini models in order.
+
+    Returns:
+        tuple[str, str]: generated content and model used
+
+    Raises:
+        RuntimeError: if all models fail
+    """
+
+    errors = []
+
+    for model_name in MODEL_NAMES:
+        try:
+            config = None
+
+            if json_mode:
+                config = types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=config,
+            )
+
+            content = response.text if response else ""
+
+            if content and content.strip():
+                return content.strip(), model_name
+
+            errors.append(
+                f"{model_name}: Empty response returned."
+            )
+
+        except Exception as exc:
+            error_text = str(exc)
+
+            errors.append(
+                f"{model_name}: {error_text}"
+            )
+
+            # A 403 permission error is project-level.
+            # Trying other models will not solve it.
+            if (
+                "403" in error_text
+                or "PERMISSION_DENIED" in error_text
+                or "project has been denied access" in error_text.lower()
+            ):
+                raise RuntimeError(
+                    "Gemini access was denied for this project.\n\n"
+                    f"Google API error:\n{error_text}\n\n"
+                    "This is an API project permission problem, not a "
+                    "quiz or summary formatting problem. Create a new "
+                    "Gemini API key from a permitted Google AI Studio "
+                    "project and replace your current GEMINI_API_KEY."
+                )
+
+            # Authentication errors also affect all models.
+            if (
+                "401" in error_text
+                or "UNAUTHENTICATED" in error_text
+                or "API key not valid" in error_text.lower()
+            ):
+                raise RuntimeError(
+                    "The Gemini API key is invalid or not authorized.\n\n"
+                    f"Google API error:\n{error_text}\n\n"
+                    "Create a new API key in Google AI Studio and update "
+                    "GEMINI_API_KEY in your Streamlit secrets."
+                )
+
+            # Continue to the next model for model-not-found,
+            # quota, rate-limit, or temporary errors.
+            continue
+
+    raise RuntimeError(
+        "All Gemini models failed.\n\n"
+        + "\n".join(errors)
+    )
 
 
 # =============================================================================
@@ -164,12 +435,17 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     text_parts = []
 
     try:
-        with fitz.open(stream=file_bytes, filetype="pdf") as pdf_doc:
+        with fitz.open(
+            stream=file_bytes,
+            filetype="pdf"
+        ) as pdf_doc:
             for page in pdf_doc:
                 text_parts.append(page.get_text())
 
     except Exception as exc:
-        raise ValueError(f"Could not read PDF file: {exc}")
+        raise ValueError(
+            f"Could not read PDF file: {exc}"
+        )
 
     return "\n".join(text_parts)
 
@@ -178,33 +454,47 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     """Extract text from a DOCX file using python-docx."""
 
     try:
-        document = docx.Document(io.BytesIO(file_bytes))
+        document = docx.Document(
+            io.BytesIO(file_bytes)
+        )
 
-        paragraphs = [p.text for p in document.paragraphs]
+        paragraphs = [
+            paragraph.text
+            for paragraph in document.paragraphs
+            if paragraph.text.strip()
+        ]
 
-        # Extract text from tables as well.
+        # Extract text from tables.
         for table in document.tables:
             for row in table.rows:
                 for cell in row.cells:
-                    if cell.text:
+                    if cell.text and cell.text.strip():
                         paragraphs.append(cell.text)
 
         return "\n".join(paragraphs)
 
     except Exception as exc:
-        raise ValueError(f"Could not read DOCX file: {exc}")
+        raise ValueError(
+            f"Could not read DOCX file: {exc}"
+        )
 
 
 def extract_text_from_txt(file_bytes: bytes) -> str:
     """Safely decode a TXT file using common encodings."""
 
-    for encoding in ("utf-8", "utf-8-sig", "latin-1"):
+    for encoding in (
+        "utf-8",
+        "utf-8-sig",
+        "latin-1"
+    ):
         try:
             return file_bytes.decode(encoding)
-        except (UnicodeDecodeError, AttributeError):
+        except UnicodeDecodeError:
             continue
 
-    raise ValueError("Could not decode text file with common encodings.")
+    raise ValueError(
+        "Could not decode text file with common encodings."
+    )
 
 
 def extract_text(uploaded_file) -> str:
@@ -228,7 +518,9 @@ def extract_text(uploaded_file) -> str:
         )
 
     if not text or not text.strip():
-        raise ValueError("No extractable text was found in this file.")
+        raise ValueError(
+            "No extractable text was found in this file."
+        )
 
     return text
 
@@ -240,21 +532,20 @@ def extract_text(uploaded_file) -> str:
 def clean_text(text: str) -> str:
     """
     Clean extracted text:
-
     - Normalize line endings
-    - Collapse repeated spaces and tabs within lines
+    - Collapse repeated spaces and tabs
     - Collapse multiple blank lines
-    - Strip leading/trailing whitespace
-    - Preserve readable paragraph breaks
+    - Preserve paragraph breaks
     """
 
     if not text:
         return ""
 
     # Normalize line endings.
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = text.replace("\r\n", "\n")
+    text = text.replace("\r", "\n")
 
-    # Collapse multiple spaces/tabs within each line.
+    # Collapse repeated spaces and tabs within each line.
     lines = [
         re.sub(r"[ \t]+", " ", line).strip()
         for line in text.split("\n")
@@ -274,24 +565,27 @@ def clean_text(text: str) -> str:
             blank_run = 0
             cleaned_lines.append(line)
 
-    cleaned = "\n".join(cleaned_lines).strip()
-
-    return cleaned
+    return "\n".join(cleaned_lines).strip()
 
 
 def compute_stats(text: str) -> dict:
     """Compute basic document statistics."""
 
-    words = re.findall(r"\b[\w'-]+\b", text)
+    words = re.findall(
+        r"\b[\w'-]+\b",
+        text
+    )
 
     word_count = len(words)
     char_count = len(text)
+
     char_count_no_spaces = len(
         text.replace(" ", "").replace("\n", "")
     )
 
     paragraphs = [
-        paragraph for paragraph in text.split("\n")
+        paragraph
+        for paragraph in text.split("\n")
         if paragraph.strip()
     ]
 
@@ -308,7 +602,8 @@ def compute_stats(text: str) -> dict:
     )
 
     sentence_count = len([
-        sentence for sentence in sentences
+        sentence
+        for sentence in sentences
         if sentence.strip()
     ])
 
@@ -340,7 +635,8 @@ def analyze_keywords(
     """
     Basic keyword-frequency analysis.
 
-    This is not topic modeling or semantic analysis.
+    This is not semantic topic modeling.
+    It counts repeated English words.
     """
 
     words = re.findall(
@@ -349,8 +645,10 @@ def analyze_keywords(
     )
 
     filtered = [
-        word for word in words
-        if word not in STOPWORDS and len(word) > 3
+        word
+        for word in words
+        if word not in STOPWORDS
+        and len(word) > 3
     ]
 
     if not filtered:
@@ -369,12 +667,12 @@ def analyze_keywords(
 
 
 # =============================================================================
-# AI HELPERS
+# AI PROMPT HELPERS
 # =============================================================================
 
 def truncate_for_prompt(
     text: str,
-    max_chars: int = 12000
+    max_chars: int = MAX_PROMPT_CHARS
 ) -> str:
     """
     Keep prompt sizes reasonable.
@@ -391,7 +689,14 @@ def truncate_for_prompt(
     )
 
 
-def generate_summary(client, material: str) -> str:
+# =============================================================================
+# AI SUMMARY
+# =============================================================================
+
+def generate_summary(
+    client,
+    material: str
+) -> str:
     """
     Generate a structured, student-friendly summary using Gemini.
     """
@@ -421,27 +726,28 @@ def generate_summary(client, material: str) -> str:
 
     full_prompt = f"""
 SYSTEM INSTRUCTIONS:
+
 {system_prompt}
 
 USER REQUEST:
+
 {user_prompt}
 """
 
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=full_prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.3
-        ),
+    content, model_used = generate_with_model_fallback(
+        client=client,
+        prompt=full_prompt,
+        json_mode=False
     )
 
-    content = response.text
+    st.session_state["summary_model"] = model_used
 
-    if not content or not content.strip():
-        raise ValueError("The AI returned an empty summary.")
+    return content
 
-    return content.strip()
 
+# =============================================================================
+# AI QUIZ
+# =============================================================================
 
 def generate_quiz(
     client,
@@ -451,7 +757,8 @@ def generate_quiz(
     """
     Generate a multiple-choice quiz using Gemini.
 
-    Returns a parsed dictionary matching the expected schema.
+    Returns:
+        Dictionary containing a questions list.
     """
 
     system_prompt = (
@@ -485,44 +792,40 @@ def generate_quiz(
         "Each question must have one correct answer represented "
         "as a single letter: A, B, C, or D. "
         "Include a short explanation of why the answer is correct.\n\n"
-        f"Return JSON matching this structure:\n"
+        "Return JSON matching this structure:\n"
         f"{json.dumps(schema_example, indent=2)}\n\n"
         f"STUDY MATERIAL:\n{truncate_for_prompt(material)}"
     )
 
     full_prompt = f"""
 SYSTEM INSTRUCTIONS:
+
 {system_prompt}
 
 USER REQUEST:
+
 {user_prompt}
 """
 
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=full_prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.4,
-            response_mime_type="application/json",
-        ),
+    content, model_used = generate_with_model_fallback(
+        client=client,
+        prompt=full_prompt,
+        json_mode=True
     )
 
-    content = response.text
-
-    if not content or not content.strip():
-        raise ValueError("The AI returned an empty quiz response.")
+    st.session_state["quiz_model"] = model_used
 
     return parse_quiz_json(content)
 
 
 def parse_quiz_json(raw_text: str) -> dict:
     """
-    Parse and validate the AI-generated quiz JSON.
+    Parse and validate AI-generated quiz JSON.
     """
 
     cleaned = raw_text.strip()
 
-    # Remove markdown code fences if they appear.
+    # Remove opening Markdown code fence.
     cleaned = re.sub(
         r"^```(?:json)?",
         "",
@@ -530,6 +833,7 @@ def parse_quiz_json(raw_text: str) -> dict:
         flags=re.IGNORECASE
     ).strip()
 
+    # Remove closing Markdown code fence.
     cleaned = re.sub(
         r"```$",
         "",
@@ -565,7 +869,6 @@ def parse_quiz_json(raw_text: str) -> dict:
         )
 
     for question in data["questions"]:
-
         if not isinstance(question, dict):
             raise ValueError(
                 "Each quiz question must be an object."
@@ -600,7 +903,12 @@ def parse_quiz_json(raw_text: str) -> dict:
             question["correct_answer"]
         ).strip().upper()
 
-        if correct_answer not in {"A", "B", "C", "D"}:
+        if correct_answer not in {
+            "A",
+            "B",
+            "C",
+            "D"
+        }:
             raise ValueError(
                 "The correct answer must be A, B, C, or D."
             )
@@ -609,6 +917,10 @@ def parse_quiz_json(raw_text: str) -> dict:
 
     return data
 
+
+# =============================================================================
+# AI STUDY ASSISTANT
+# =============================================================================
 
 def ask_study_assistant(
     client,
@@ -635,34 +947,30 @@ def ask_study_assistant(
 
     full_prompt = f"""
 SYSTEM INSTRUCTIONS:
+
 {system_prompt}
 
 USER REQUEST:
+
 {user_prompt}
 """
 
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=full_prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.3
-        ),
+    content, model_used = generate_with_model_fallback(
+        client=client,
+        prompt=full_prompt,
+        json_mode=False
     )
 
-    content = response.text
+    st.session_state["assistant_model"] = model_used
 
-    if not content or not content.strip():
-        raise ValueError("The AI returned an empty answer.")
-
-    return content.strip()
+    return content
 
 
 # =============================================================================
-# SIDEBAR: SETTINGS AND UPLOAD
+# SIDEBAR
 # =============================================================================
 
 def render_sidebar():
-
     st.sidebar.title(
         f"{APP_ICON} {APP_TITLE}"
     )
@@ -673,7 +981,7 @@ def render_sidebar():
 
     st.sidebar.divider()
 
-    # Gemini API key status.
+    # API key status.
     api_key = get_api_key()
 
     if api_key:
@@ -684,8 +992,24 @@ def render_sidebar():
         st.sidebar.warning(
             "No Gemini API key found.\n\n"
             "Set GEMINI_API_KEY in .streamlit/secrets.toml "
-            "or configure it as an environment variable. "
-            "AI features will not work until a key is configured."
+            "or configure it as an environment variable."
+        )
+
+    st.sidebar.divider()
+
+    # Model list.
+    st.sidebar.subheader("AI Model Fallback")
+
+    st.sidebar.caption(
+        "The app tries models in this order until one works."
+    )
+
+    for index, model_name in enumerate(
+        MODEL_NAMES,
+        start=1
+    ):
+        st.sidebar.write(
+            f"{index}. `{model_name}`"
         )
 
     st.sidebar.divider()
@@ -715,8 +1039,9 @@ def render_sidebar():
     )
 
     if load_clicked:
-
         try:
+            raw_text = None
+            source_name = None
 
             if uploaded_file is not None:
                 raw_text = extract_text(uploaded_file)
@@ -730,11 +1055,8 @@ def render_sidebar():
                 st.sidebar.error(
                     "Please upload a file or paste some text first."
                 )
-                raw_text = None
-                source_name = None
 
             if raw_text:
-
                 cleaned = clean_text(raw_text)
 
                 st.session_state["raw_text"] = raw_text
@@ -745,8 +1067,11 @@ def render_sidebar():
 
                 # Reset AI results when material changes.
                 st.session_state["summary"] = ""
+                st.session_state["summary_model"] = ""
                 st.session_state["quiz"] = None
+                st.session_state["quiz_model"] = ""
                 st.session_state["quiz_raw_error"] = ""
+                st.session_state["assistant_model"] = ""
                 st.session_state["qa_history"] = []
 
                 st.sidebar.success(
@@ -764,15 +1089,16 @@ def render_sidebar():
     st.sidebar.divider()
 
     if st.session_state["clean_text"]:
-
         st.sidebar.caption(
             f"Current material: **{st.session_state['source_name']}**"
         )
 
-        if st.sidebar.button(
+        clear_clicked = st.sidebar.button(
             "Clear Material",
             use_container_width=True
-        ):
+        )
+
+        if clear_clicked:
             for key, value in DEFAULT_STATE.items():
                 st.session_state[key] = value
 
@@ -787,11 +1113,10 @@ def render_sidebar():
 
 
 # =============================================================================
-# MAIN DASHBOARD: OVERVIEW
+# OVERVIEW TAB
 # =============================================================================
 
 def render_overview():
-
     st.subheader("📊 Document Overview")
 
     stats = st.session_state["stats"]
@@ -831,7 +1156,6 @@ def render_overview():
     )
 
     with st.expander("View extracted / cleaned text"):
-
         st.text_area(
             "Cleaned study material",
             value=st.session_state["clean_text"],
@@ -861,12 +1185,13 @@ def render_overview():
     chart_col, table_col = st.columns([2, 1])
 
     with chart_col:
+        chart_data = keywords_df.sort_values(
+            "Frequency",
+            ascending=True
+        )
 
         fig = px.bar(
-            keywords_df.sort_values(
-                "Frequency",
-                ascending=True
-            ),
+            chart_data,
             x="Frequency",
             y="Keyword",
             orientation="h",
@@ -889,7 +1214,6 @@ def render_overview():
         )
 
     with table_col:
-
         st.dataframe(
             keywords_df,
             use_container_width=True,
@@ -913,7 +1237,6 @@ def render_overview():
 # =============================================================================
 
 def render_summary_tab():
-
     st.subheader("📝 AI Summary")
 
     if not st.session_state["clean_text"]:
@@ -926,11 +1249,11 @@ def render_summary_tab():
 
     generate_clicked = st.button(
         "Generate AI Summary",
-        type="primary"
+        type="primary",
+        key="generate_summary_button"
     )
 
     if generate_clicked:
-
         if client is None:
             st.error(
                 "No Gemini API key configured. "
@@ -939,11 +1262,10 @@ def render_summary_tab():
             )
 
         else:
-
-            with st.spinner("Generating summary..."):
-
+            with st.spinner(
+                "Generating summary using available Gemini models..."
+            ):
                 try:
-
                     summary = generate_summary(
                         client,
                         st.session_state["clean_text"]
@@ -957,6 +1279,15 @@ def render_summary_tab():
                     )
 
     if st.session_state["summary"]:
+        used_model = st.session_state.get(
+            "summary_model",
+            ""
+        )
+
+        if used_model:
+            st.caption(
+                f"Generated using model: `{used_model}`"
+            )
 
         st.markdown(
             st.session_state["summary"]
@@ -975,7 +1306,6 @@ def render_summary_tab():
 # =============================================================================
 
 def render_quiz_tab():
-
     st.subheader("🧠 AI Quiz Generator")
 
     if not st.session_state["clean_text"]:
@@ -990,16 +1320,17 @@ def render_quiz_tab():
         "Number of questions",
         min_value=3,
         max_value=15,
-        value=5
+        value=5,
+        key="number_of_questions"
     )
 
     generate_clicked = st.button(
         "Generate Quiz",
-        type="primary"
+        type="primary",
+        key="generate_quiz_button"
     )
 
     if generate_clicked:
-
         if client is None:
             st.error(
                 "No Gemini API key configured. "
@@ -1008,11 +1339,10 @@ def render_quiz_tab():
             )
 
         else:
-
-            with st.spinner("Generating quiz..."):
-
+            with st.spinner(
+                "Generating quiz using available Gemini models..."
+            ):
                 try:
-
                     quiz_data = generate_quiz(
                         client,
                         st.session_state["clean_text"],
@@ -1023,27 +1353,33 @@ def render_quiz_tab():
                     st.session_state["quiz_raw_error"] = ""
 
                 except ValueError as exc:
-
                     st.session_state["quiz"] = None
                     st.session_state["quiz_raw_error"] = str(exc)
 
                 except Exception as exc:
-
                     st.session_state["quiz"] = None
                     st.session_state["quiz_raw_error"] = (
                         f"Unexpected error: {exc}"
                     )
 
     if st.session_state["quiz_raw_error"]:
-
         st.error(
-            "The quiz could not be generated in the expected format. "
+            "The quiz could not be generated.\n\n"
             f"Details: {st.session_state['quiz_raw_error']}"
         )
 
     quiz = st.session_state["quiz"]
 
     if quiz:
+        used_model = st.session_state.get(
+            "quiz_model",
+            ""
+        )
+
+        if used_model:
+            st.caption(
+                f"Quiz generated using model: `{used_model}`"
+            )
 
         quiz_text_lines = []
 
@@ -1051,7 +1387,6 @@ def render_quiz_tab():
             quiz["questions"],
             start=1
         ):
-
             st.markdown(
                 f"**Q{i}. {question['question']}**"
             )
@@ -1066,7 +1401,6 @@ def render_quiz_tab():
             with st.expander(
                 "Show correct answer and explanation"
             ):
-
                 st.markdown(
                     f"**Correct answer:** "
                     f"{question['correct_answer']}"
@@ -1114,7 +1448,6 @@ def render_quiz_tab():
 # =============================================================================
 
 def render_assistant_tab():
-
     st.subheader("💬 Study Assistant")
 
     if not st.session_state["clean_text"]:
@@ -1127,11 +1460,11 @@ def render_assistant_tab():
 
     st.caption(
         "Ask questions like: "
-        "*What is the main topic?*, "
-        "*Explain this concept in simple terms*, "
-        "*What are the important definitions?*, "
-        "*Compare two concepts in the material*, or "
-        "*Create a short reviewer*."
+        "**What is the main topic?**, "
+        "**Explain this concept in simple terms**, "
+        "**What are the important definitions?**, "
+        "**Compare two concepts in the material**, or "
+        "**Create a short reviewer**."
     )
 
     question = st.text_area(
@@ -1142,11 +1475,11 @@ def render_assistant_tab():
 
     ask_clicked = st.button(
         "Ask Question",
-        type="primary"
+        type="primary",
+        key="ask_assistant_button"
     )
 
     if ask_clicked:
-
         if client is None:
             st.error(
                 "No Gemini API key configured. "
@@ -1160,11 +1493,10 @@ def render_assistant_tab():
             )
 
         else:
-
-            with st.spinner("Thinking..."):
-
+            with st.spinner(
+                "Thinking using available Gemini models..."
+            ):
                 try:
-
                     answer = ask_study_assistant(
                         client,
                         st.session_state["clean_text"],
@@ -1181,17 +1513,25 @@ def render_assistant_tab():
                     )
 
     if st.session_state["qa_history"]:
-
         st.divider()
 
         st.markdown(
             "### Conversation History"
         )
 
+        used_model = st.session_state.get(
+            "assistant_model",
+            ""
+        )
+
+        if used_model:
+            st.caption(
+                f"Latest answer generated using model: `{used_model}`"
+            )
+
         for question_text, answer in reversed(
             st.session_state["qa_history"]
         ):
-
             st.markdown(
                 f"**You:** {question_text}"
             )
@@ -1204,11 +1544,10 @@ def render_assistant_tab():
 
 
 # =============================================================================
-# MAIN APP LAYOUT
+# MAIN APP
 # =============================================================================
 
 def main():
-
     render_sidebar()
 
     st.title(
